@@ -130,3 +130,17 @@ def solve_heating_robust(
 
 
 solve_heating = solve_heating_robust
+
+# Обёртка для совместимости с history.py
+def solve_heating_robust(
+    y: np.ndarray,
+    T: np.ndarray,
+    alpha: float,
+    E: float,
+    sigma_s0: float,
+    thickness: float = 1.0,
+    n_grid: int = 20,
+    verbose: bool = False,
+):
+    """Обёртка для solve_heating с единым интерфейсом"""
+    return solve_heating(y, T, alpha, E, sigma_s0, thickness, n_grid, verbose)
