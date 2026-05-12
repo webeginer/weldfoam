@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+docs/gosts/*.pdf
+
+# Streamlit (локальные секреты и кэш)
+.streamlit/secrets.toml
+.streamlit/cache/
+
+# Docker (локальные файлы, не нужные в Git)
+*.pid
+
+# Temporary files (временные файлы)
+*.tmp
+*.temp
+
+# Jupyter notebooks (если будут использоваться)
+.ipynb_checkpoints/
+*.ipynb
+
+# Python package manager
+*.egg-info/
+dist/
+build/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Результаты расчётов (локальные)
+*.json
+outputs/
+results/
+
+# Streamlit logs
+.streamlit/logs/
+
+# Запасные копии (при редактировании)
+*.bak
+*.backup
+*.orig
