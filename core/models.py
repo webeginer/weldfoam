@@ -70,3 +70,14 @@ class WeldingResult(BaseModel):
     n_points: int
     material: str
     deflection_mm: Optional[float] = None
+# ----------------------------------------------------------------------
+# Выходные данные: полный расчёт с остыванием
+# ----------------------------------------------------------------------
+
+class FullWeldingResult(WeldingResult):
+    """Результат с учётом остывания"""
+    final_curvature_1pm: float
+    residual_stresses_MPa: List[float]
+    final_plastic_strains: List[float]
+    deflection_mm: float
+    cooling_steps: int
