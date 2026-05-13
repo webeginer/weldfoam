@@ -55,47 +55,38 @@ def compute_residuals(
     return F1, F2, stresses, plastic
 
 
-def solve_heating_robust(
+def solve_heating(
     y: np.ndarray,
     T: np.ndarray,
     alpha: float,
     E: float,
     sigma_s0: float,
     thickness: float = 1.0,
-    n_grid: int = 30,
+    n_grid: int = 20,
     verbose: bool = False,
 ) -> Tuple[float, float, np.ndarray, np.ndarray, int, float]:
     """
-    Подбор Δ0, Δh прямым перебором с проверкой равновесия.
+    Прямой перебор для нахождения Δ0, Δh.
     """
     h = y[-1] - y[0]
     lam = alpha * T
     
-    # Диапазон поиска: расширенный от мин до макс тепловой деформации
     lam_min = np.min(lam)
     lam_max = np.max(lam)
     lam_mean = np.mean(lam)
     
-    # Расширяем диапазон на 100% для учёта пластики (увеличил с 20% до 100%)
-    margin = (lam_max - lam_min) * 1.0
+    margin = max((lam_max - lam_min) * 1.0, 0.005)
     delta_min = lam_min - margin
     delta_max = lam_max + margin
     
-    if verbose:
-        print(f"Поиск Δ0, Δh в диапазоне [{delta_min:.4f}, {delta_max:.4f}]")
-    
-    # Сетка перебора
     grid = np.linspace(delta_min, delta_max, n_grid)
     
     best_residual = np.inf
     best_delta0 = lam_mean
     best_deltah = lam_mean
-    best_F1 = 0
-    best_F2 = 0
     best_stresses = None
     best_plastic = None
     
-    # Грубый перебор
     for delta0 in grid:
         for deltah in grid:
             F1, F2, stresses, plastic = compute_residuals(
@@ -107,12 +98,10 @@ def solve_heating_robust(
                 best_residual = residual
                 best_delta0 = delta0
                 best_deltah = deltah
-                best_F1 = F1
-                best_F2 = F2
                 best_stresses = stresses.copy()
                 best_plastic = plastic.copy()
                 
-                if residual < 100.0:  # Инженерная точность
+                if residual < 100.0:
                     if verbose:
                         print(f"  Ранний выход: residual={residual:.1f} Н")
                     break
@@ -120,27 +109,9 @@ def solve_heating_robust(
             continue
         break
     
-    if verbose:
-        print(f"Результат: Δ0={best_delta0:.6f}, Δh={best_deltah:.6f}")
-        print(f"  Невязка: F1={best_F1:.2f} Н, F2={best_F2:.2f} Н⋅м")
-    
     curvature = (best_deltah - best_delta0) / h
     
+    if verbose:
+        print(f"Результат: Δ0={best_delta0:.6f}, Δh={best_deltah:.6f}, C={curvature:.3e}")
+    
     return best_delta0, best_deltah, best_stresses, best_plastic, n_grid * n_grid, best_residual
-
-
-solve_heating = solve_heating_robust
-
-# Обёртка для совместимости с history.py
-def solve_heating_robust(
-    y: np.ndarray,
-    T: np.ndarray,
-    alpha: float,
-    E: float,
-    sigma_s0: float,
-    thickness: float = 1.0,
-    n_grid: int = 20,
-    verbose: bool = False,
-):
-    """Обёртка для solve_heating с единым интерфейсом"""
-    return solve_heating(y, T, alpha, E, sigma_s0, thickness, n_grid, verbose)
