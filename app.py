@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 st.title("🔥 WeldFOAM - Калькулятор сварочных деформаций")
-st.markdown("### Этап 1: Нагрев (предельное состояние)")
+st.markdown("### Полный расчёт: нагрев + остывание")
 
 # Боковая панель с параметрами
 with st.sidebar:
@@ -32,31 +32,26 @@ with st.sidebar:
     st.subheader("📐 Геометрия")
     col1, col2, col3 = st.columns(3)
     with col1:
-        h_m = st.number_input("Высота h (мм)", value=100.0, min_value=20.0, max_value=500.0, step=10.0) / 1000.0
+        h_mm = st.number_input("Высота h (мм)", value=100.0, min_value=20.0, max_value=500.0, step=10.0)
+        h_m = h_mm / 1000.0
         st.caption(f"= {h_m:.3f} м")
     with col2:
-        delta_m = st.number_input("Толщина δ (мм)", value=4.0, min_value=1.0, max_value=20.0, step=1.0) / 1000.0
+        delta_mm = st.number_input("Толщина δ (мм)", value=4.0, min_value=1.0, max_value=20.0, step=1.0)
+        delta_m = delta_mm / 1000.0
         st.caption(f"= {delta_m:.3f} м")
     with col3:
-        L_m = st.number_input("Длина L (мм)", value=500.0, min_value=100.0, max_value=2000.0, step=50.0) / 1000.0
+        L_mm = st.number_input("Длина L (мм)", value=500.0, min_value=100.0, max_value=2000.0, step=50.0)
+        L_m = L_mm / 1000.0
         st.caption(f"= {L_m:.1f} м")
     
     # ========== МАТЕРИАЛ ==========
     st.subheader("🏗️ Материал")
     material_name = st.selectbox("Марка стали", ["Ст3", "АМг6", "12Х18Н10Т"])
     
-    # ========== РАСШИРЕННЫЕ НАСТРОЙКИ ==========
-    with st.expander("🔧 Расширенные настройки"):
+    # ========== ЧИСЛЕННЫЕ ПАРАМЕТРЫ ==========
+    with st.expander("🔧 Численные параметры"):
         n_points = st.slider("Количество точек по высоте", 20, 100, 50)
-        
-        st.divider()
-        st.caption("Режим отладки: прямой ввод T(y)")
-        manual_T = st.checkbox("Использовать ручной ввод температуры")
-        
-        if manual_T:
-            T_max_manual = st.number_input("T_max на кромке (°C)", value=1200.0)
-            T_min_manual = st.number_input("T_min (°C)", value=20.0)
-            profile_type = st.radio("Тип профиля", ["Экспоненциальный", "Линейный"])
+        n_steps = st.slider("Шагов остывания", 20, 80, 40)
     
     # ========== КНОПКА РАСЧЁТА ==========
     st.divider()
@@ -72,77 +67,30 @@ with st.sidebar:
             "L_m": L_m,
             "material_name": material_name,
             "n_points": n_points,
-            "manual_T": manual_T,
-            "T_max_manual": T_max_manual if manual_T else None,
-            "T_min_manual": T_min_manual if manual_T else None,
-            "profile_type": profile_type if manual_T else None
+            "n_steps": n_steps
         }
 
 # Основная область
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.header("📥 Тепловой расчёт")
+    st.header("📥 Параметры расчёта")
     
     if st.session_state.get("calculate", False):
         input_data = st.session_state.input_data
         
-        # Предпросмотр температурного профиля
-        if not input_data["manual_T"]:
-            # Демонстрационный профиль (имитация thermal.py)
-            y_mm = np.linspace(0, input_data["h_m"] * 1000, input_data["n_points"])
-            # Грубая оценка T_max от тепловложения
-            q = input_data["eta"] * input_data["U_V"] * input_data["I_A"]
-            heat_input = q / input_data["v_ms"]
-            T_max_est = 20 + min(heat_input / 1000 * 300, 1480)
-            T_profile = 20 + (T_max_est - 20) * np.exp(-15 * y_mm / 1000)  # затухание
-        else:
-            y_mm = np.linspace(0, input_data["h_m"] * 1000, input_data["n_points"])
-            if input_data["profile_type"] == "Экспоненциальный":
-                T_profile = input_data["T_min_manual"] + (input_data["T_max_manual"] - input_data["T_min_manual"]) * np.exp(-0.05 * y_mm)
-            else:
-                T_profile = input_data["T_max_manual"] - (input_data["T_max_manual"] - input_data["T_min_manual"]) * (y_mm / (input_data["h_m"] * 1000))
-        
-        # График T(y)
-        fig_t, ax_t = plt.subplots(figsize=(6, 5))
-        ax_t.plot(T_profile, y_mm)
-        ax_t.set_xlabel("Температура T (°C)")
-        ax_t.set_ylabel("y (мм)")
-        ax_t.set_title("🌡️ Температурный профиль T(y)")
-        ax_t.grid(True, alpha=0.3)
-        ax_t.axhline(y=0, color='red', linestyle='--', alpha=0.5, label='Кромка шва')
-        ax_t.axhline(y=input_data["h_m"] * 1000, color='blue', linestyle='--', alpha=0.5, label='Холодная кромка')
-        ax_t.legend()
-        st.pyplot(fig_t)
-        
-        # Информация о тепловложении
-        q = input_data["eta"] * input_data["U_V"] * input_data["I_A"]
-        heat_input_kJ_m = (q / input_data["v_ms"]) / 1000
-        st.info(f"🔥 Тепловложение: {heat_input_kJ_m:.1f} кДж/м | T_max расч: {T_profile[0]:.0f}°C")
-        
-        st.session_state.T_profile = T_profile
-        st.session_state.y_mm = y_mm
-        st.session_state.heat_input_kJ_m = heat_input_kJ_m
-        
-    else:
-        st.info("👈 Настройте параметры сварки и нажмите 'РАССЧИТАТЬ'")
-        y_mm = np.linspace(0, 100, 50)
-        T_profile = np.linspace(1000, 20, 50)
-        fig_t, ax_t = plt.subplots(figsize=(6, 5))
-        ax_t.plot(T_profile, y_mm)
-        ax_t.set_xlabel("Температура T (°C)")
-        ax_t.set_ylabel("y (мм)")
-        ax_t.set_title("🌡️ Температурный профиль T(y) (пример)")
-        ax_t.grid(True, alpha=0.3)
-        st.pyplot(fig_t)
+        # Отображение параметров
+        st.write(f"**Материал:** {input_data['material_name']}")
+        st.write(f"**Режим сварки:** {input_data['I_A']:.0f} А, {input_data['U_V']:.0f} В, {input_data['v_ms']*100:.2f} см/с")
+        st.write(f"**Геометрия:** h={input_data['h_m']*1000:.0f} мм, δ={input_data['delta_m']*1000:.1f} мм, L={input_data['L_m']*1000:.0f} мм")
+        st.write(f"**Сетка:** {input_data['n_points']} точек, {input_data['n_steps']} шагов остывания")
 
 with col2:
-    st.header("📤 Результаты этапа 1")
+    st.header("📤 Результаты")
     
-    if st.session_state.get("calculate", False) and st.session_state.get("T_profile") is not None:
-        with st.spinner("🔬 Решение методом Ньютона..."):
+    if st.session_state.get("calculate", False):
+        with st.spinner("🔬 Расчёт..."):
             try:
-                # Подготовка payload в точности как WeldingInput
                 payload = {
                     "I_A": st.session_state.input_data["I_A"],
                     "U_V": st.session_state.input_data["U_V"],
@@ -155,68 +103,61 @@ with col2:
                 }
                 
                 response = requests.post(
-                    "http://localhost:8000/api/v1/calculate/welding",
+                    "http://localhost:8000/api/v1/calculate/welding-full",
                     json=payload,
-                    timeout=30
+                    timeout=60
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
-                    
-                    # Извлекаем результаты нагрева
                     heating = result["heating"]
                     
                     # Метрики
                     col_r1, col_r2, col_r3 = st.columns(3)
                     with col_r1:
-                        st.metric("Δ0", f"{heating['delta0']:.2e}", help="Деформация на кромке шва")
-                        st.metric("Кривизна", f"{heating['curvature_1pm']:.3e} 1/м")
+                        st.metric("Начальная кривизна", f"{heating['curvature_1pm']:.3e} 1/м")
+                        st.metric("Стрелка прогиба", f"{result['deflection_mm']:.2f} мм")
                     with col_r2:
-                        st.metric("Δh", f"{heating['deltah']:.2e}", help="Деформация на холодной кромке")
-                        st.metric("Итераций", heating['iterations'])
+                        st.metric("Финальная кривизна", f"{result['final_curvature_1pm']:.3e} 1/м")
+                        st.metric("T_max", f"{result['T_max_C']:.0f} °C")
                     with col_r3:
-                        st.metric("Max ε_pl", f"{heating['plastic_strains_compression'][0]:.2e}")
-                        st.metric("Невязка", f"{heating['residual']:.1e}")
+                        st.metric("Тепловложение", f"{result['heat_input_kJ_per_m']:.1f} кДж/м")
+                        st.metric("Шагов остывания", result['cooling_steps'])
                     
-                    st.info(f"🔥 Тепловложение: {result['heat_input_kJ_per_m']:.1f} кДж/м | T_max: {result['T_max_C']:.0f}°C")
-                    
-                    # Эпюра напряжений
-                    st.subheader("📈 Эпюра напряжений")
+                    # Эпюра остаточных напряжений
+                    st.subheader("📈 Остаточные напряжения")
                     y_coords_mm = heating['y_coords_mm']
-                    stresses_MPa = heating['stresses_MPa']
+                    residual_stresses_MPa = result['residual_stresses_MPa']
                     
                     fig_s, ax_s = plt.subplots(figsize=(6, 5))
-                    ax_s.plot(stresses_MPa, y_coords_mm, linewidth=2)
+                    ax_s.plot(residual_stresses_MPa, y_coords_mm, linewidth=2, color='darkred')
                     ax_s.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
-                    ax_s.set_xlabel("Напряжение σ (МПа)")
+                    ax_s.set_xlabel("Остаточное напряжение σ (МПа)")
                     ax_s.set_ylabel("y (мм)")
-                    ax_s.set_title("Эпюра напряжений в момент нагрева")
+                    ax_s.set_title("Эпюра остаточных напряжений")
                     ax_s.grid(True, alpha=0.3)
                     st.pyplot(fig_s)
                     
-                    # Эпюра пластических деформаций
-                    st.subheader("📉 Пластические деформации")
-                    fig_p, ax_p = plt.subplots(figsize=(6, 5))
-                    plastic = heating['plastic_strains_compression']
-                    ax_p.plot(plastic, y_coords_mm, linewidth=2)
-                    ax_p.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
-                    ax_p.fill_betweenx(y_coords_mm, 0, plastic, where=(np.array(plastic)<0), alpha=0.3, color='blue', label='Сжатие')
-                    ax_p.set_xlabel("Пластическая деформация ε_pl")
-                    ax_p.set_ylabel("y (мм)")
-                    ax_p.set_title("Накопленные пластические деформации")
-                    ax_p.grid(True, alpha=0.3)
-                    ax_p.legend()
-                    st.pyplot(fig_p)
+                    # Сравнение эпюр
+                    st.subheader("📊 Сравнение: нагрев vs остывание")
+                    stresses_heating_MPa = heating['stresses_MPa']
                     
-                    # Прогиб
-                    if result.get('deflection_mm'):
-                        st.metric("📐 Стрелка прогиба", f"{result['deflection_mm']:.2f} мм")
+                    fig_c, ax_c = plt.subplots(figsize=(6, 5))
+                    ax_c.plot(stresses_heating_MPa, y_coords_mm, linewidth=2, label='Нагрев', color='blue')
+                    ax_c.plot(residual_stresses_MPa, y_coords_mm, linewidth=2, label='Остывание (остаточные)', color='darkred')
+                    ax_c.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
+                    ax_c.set_xlabel("Напряжение σ (МПа)")
+                    ax_c.set_ylabel("y (мм)")
+                    ax_c.set_title("Изменение эпюры напряжений")
+                    ax_c.legend()
+                    ax_c.grid(True, alpha=0.3)
+                    st.pyplot(fig_c)
                     
                     # Кнопка скачивания
                     st.download_button(
                         label="💾 Скачать результаты (JSON)",
                         data=json.dumps(result, indent=2),
-                        file_name="weldfoam_stage1.json",
+                        file_name="weldfoam_full_result.json",
                         mime="application/json"
                     )
                     
@@ -227,11 +168,9 @@ with col2:
                 st.error("❌ Не удалось подключиться к серверу FastAPI. Запустите: python main.py")
             except Exception as e:
                 st.error(f"❌ Ошибка: {e}")
-    elif st.session_state.get("calculate", False):
-        st.info("⚙️ Настройте режим сварки и нажмите 'РАССЧИТАТЬ'")
     else:
-        st.info("👈 Введите параметры и нажмите 'РАССЧИТАТЬ'")
+        st.info("👈 Настройте параметры и нажмите 'РАССЧИТАТЬ'")
 
 # Footer
 st.markdown("---")
-st.markdown("**WeldFOAM** | Этап 1: Нагрев | Метод Ньютона | Идеальная упруго-пластичность")
+st.markdown("**WeldFOAM** | Нагрев + остывание | Остаточные напряжения | Стрелка прогиба")
