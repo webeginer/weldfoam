@@ -3,6 +3,11 @@ import requests
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import os
+
+
+# Получаем URL API из переменной окружения или используем localhost для разработки
+API_BASE_URL = os.getenv(f"API_URL", "http://localhost:8000")
 
 st.set_page_config(
     page_title="WeldFOAM - Калькулятор сварочных деформаций",
@@ -103,7 +108,7 @@ with col2:
                 }
                 
                 response = requests.post(
-                    "http://localhost:8000/api/v1/calculate/welding-full",
+                    "{API_BASE_URL}/api/v1/calculate/welding-full",
                     json=payload,
                     timeout=60
                 )
