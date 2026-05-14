@@ -6,8 +6,20 @@ import json
 import os
 
 
-# Получаем URL API из переменной окружения или используем localhost для разработки
-API_BASE_URL = os.getenv(f"API_URL", "http://localhost:8000")
+API_URL = "http://localhost:8000"
+
+# Если запущено на Render (есть переменная окружения RENDER) — берём API_URL из окружения
+if os.getenv("RENDER"):
+    API_URL = os.getenv("API_URL", "https://weldfoam-ui.onrender.com")
+# Если есть локальный secrets.toml — используем его для переопределения (удобно для отладки)
+elif os.path.exists(".streamlit/secrets.toml"):
+    try:
+        API_URL = st.secrets.get("API_URL", API_URL)
+    except:
+        pass
+
+# Для отладки (показывает текущий адрес API в сайдбаре)
+st.sidebar.caption(f"🌐 API: {API_URL}")
 
 st.set_page_config(
     page_title="WeldFOAM - Калькулятор сварочных деформаций",
@@ -108,7 +120,7 @@ with col2:
                 }
                 
                 response = requests.post(
-                    "{API_BASE_URL}/api/v1/calculate/welding-full",
+                    f"{API_URL}/api/v1/calculate/welding-full",
                     json=payload,
                     timeout=60
                 )
