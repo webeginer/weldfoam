@@ -1,0 +1,28 @@
+# WeldFOAM Core Service - исследовательский микросервис
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Установка системных зависимостей (для scipy/matplotlib)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копирование зависимостей
+COPY requirements.txt .
+
+# Установка Python пакетов
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копирование кода (только core и api)
+COPY core/ ./core/
+COPY api/ ./api/
+COPY main.py .
+COPY tests/ ./tests/
+
+# Открыть порт
+EXPOSE 8000
+
+# Запуск API сервера
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
