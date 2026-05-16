@@ -27,13 +27,17 @@ app.include_router(router)
 
 @app.get("/")
 async def root():
-    from api.routes import router
+    # Пути из роутера уже содержат /api/v1, не добавляем повторно
     paths = [route.path for route in router.routes]
     return {
         "service": "WeldFOAM",
         "version": "0.1.0",
-        "endpoints": paths  # пути уже содержат /api/v1
+        "endpoints": sorted(paths)
     }
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "WeldFOAM"}
 
 if __name__ == "__main__":
     import uvicorn
