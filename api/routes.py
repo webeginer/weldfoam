@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 import numpy as np
 import logging
+from typing import List
+from pydantic import BaseModel
 
 from core.models import DirectInput, WeldingInput, HeatingResult, WeldingResult, FullWeldingResult
 from core.material_db import get_material
@@ -13,6 +15,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["weldfoam"])
 
 
+# ========== МОДЕЛИ ДЛЯ BATCH ENDPOINT ==========
+class BatchRegime(BaseModel):
+    I_A: float
+    U_V: float
+    v_ms: float
+    h_m: float
+    delta_m: float
+    L_m: float = 0.5
+    material_name: str = "Ст3"
+    n_points: int = 20
+
+
+class BatchResponse(BaseModel):
+    regime_id: int
+    curvature_1pm: float
+    max_stress_MPa: float
+    deflection_mm: float
+
+
+# ========== ЭНДПОИНТЫ ==========
 @router.post("/calculate/direct", response_model=HeatingResult)
 async def calculate_direct(input_data: DirectInput):
     """Прямой расчёт по заданному T(y) (только нагрев)."""
@@ -201,6 +223,64 @@ async def calculate_welding_full(input_data: WeldingInput):
     except Exception as e:
         logger.exception("Full welding calculation failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/research/batch", response_model=List[BatchResponse])
+async def batch_calculate(regimes: List[BatchRegime]):
+    """
+    Пакетный расчёт для наполнения библиотеки режимов.
+    Принимает массив режимов, возвращает массив результатов.
+    """
+    results = []
+    
+    for idx, regime in enumerate(regimes):
+        try:
+            material = get_material(regime.material_name)
+            
+            y_m = np.linspace(0, regime.h_m, regime.n_points)
+            
+            material_dict = {
+                'lambda': material.lambda_W_mK,
+                'a': material.a_m2s,
+                'eta': material.eta,
+                'T0': material.T0_C,
+                'T_max_allowed': 1500.0
+            }
+            
+            T_profile = temperature_profile_rykalin(
+                y_m=y_m, I=regime.I_A, U=regime.U_V, v=regime.v_ms,
+                delta=regime.delta_m, material=material_dict, x=0.0
+            )
+            
+            E_Pa = material.E_GPa * 1e9
+            sigma_s0_Pa = material.sigma_s0_MPa * 1e6
+            
+            delta0, deltah, stresses, _, _, _ = solve_heating(
+                y=y_m, T=T_profile, alpha=material.alpha_1perC,
+                E=E_Pa, sigma_s0=sigma_s0_Pa, thickness=regime.delta_m,
+                n_grid=20, verbose=False
+            )
+            
+            curvature = (deltah - delta0) / regime.h_m
+            deflection = curvature * regime.L_m**2 / 8 if curvature != 0 else 0.0
+            
+            results.append(BatchResponse(
+                regime_id=idx,
+                curvature_1pm=float(curvature),
+                max_stress_MPa=float(np.max(stresses) / 1e6),
+                deflection_mm=float(deflection * 1000)
+            ))
+            
+        except Exception as e:
+            logger.error(f"Batch calculation failed for regime {idx}: {e}")
+            results.append(BatchResponse(
+                regime_id=idx,
+                curvature_1pm=0.0,
+                max_stress_MPa=0.0,
+                deflection_mm=0.0
+            ))
+    
+    return results
 
 
 @router.get("/health")
