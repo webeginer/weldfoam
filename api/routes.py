@@ -225,7 +225,7 @@ async def calculate_welding_full(input_data: WeldingInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/research/batch", response_model=List[BatchResponse])
+@router.post("batch", response_model=List[BatchResponse])
 async def batch_calculate(regimes: List[BatchRegime]):
     """
     Пакетный расчёт для наполнения библиотеки режимов.
