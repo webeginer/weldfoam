@@ -28,13 +28,12 @@ app.include_router(router)
 
 @app.get("/")
 async def root():
+    from api.routes import router
+    paths = [route.path for route in router.routes]
     return {
         "service": "WeldFOAM",
         "version": "0.1.0",
-        "endpoints": [
-            "/api/v1/calculate/heating",
-            "/api/v1/health"
-        ]
+        "endpoints": [f"/api/v1{path}" for path in paths]
     }
 
 if __name__ == "__main__":
