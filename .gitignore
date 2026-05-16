@@ -79,3 +79,11 @@ results/
 *.bak
 *.backup
 *.orig
+
+# Визуализация
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.svg
