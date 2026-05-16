@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -23,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключение роутеров
+# Подключение роутеров (у него уже есть prefix="/api/v1")
 app.include_router(router)
 
 @app.get("/")
@@ -33,7 +32,7 @@ async def root():
     return {
         "service": "WeldFOAM",
         "version": "0.1.0",
-        "endpoints": [f"/api/v1{path}" for path in paths]
+        "endpoints": paths  # пути уже содержат /api/v1
     }
 
 if __name__ == "__main__":
