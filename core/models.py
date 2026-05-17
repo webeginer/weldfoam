@@ -1,4 +1,4 @@
-# core/models.py
+# core/models.py — исправленный
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 
@@ -15,7 +15,7 @@ class MaterialProperties(BaseModel):
     a_m2s: float = Field(1.2e-5, description="Температуропроводность (м²/с)")
     eta: float = Field(0.75, description="КПД дуги")
     T0_C: float = Field(20.0, description="Начальная температура (°C)")
-    T_max_allowed_C: float = Field(1500.0, description="Максимальная допустимая температура (°C)")
+    T_melting_C: float = Field(1500.0, description="Температура плавления (°C)")
 
 # ----------------------------------------------------------------------
 # Входные данные: пошаговый режим (пользователь задаёт T(y))
@@ -58,6 +58,7 @@ class HeatingResult(BaseModel):
     y_coords_mm: List[float]
     iterations: int
     residual: float
+    warning: Optional[str] = None  # предупреждение о перегреве
 
 # ----------------------------------------------------------------------
 # Выходные данные: полный результат
@@ -70,6 +71,8 @@ class WeldingResult(BaseModel):
     n_points: int
     material: str
     deflection_mm: Optional[float] = None
+    warning: Optional[str] = None
+
 # ----------------------------------------------------------------------
 # Выходные данные: полный расчёт с остыванием
 # ----------------------------------------------------------------------
@@ -81,3 +84,4 @@ class FullWeldingResult(WeldingResult):
     final_plastic_strains: List[float]
     deflection_mm: float
     cooling_steps: int
+    warning: Optional[str] = None

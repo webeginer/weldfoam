@@ -1,4 +1,4 @@
-# core/material_db.py
+# core/material_db.py — исправленный
 from .models import MaterialProperties
 
 # База данных свойств материалов
@@ -11,7 +11,8 @@ MATERIALS_DB = {
         lambda_W_mK=50.0,
         a_m2s=1.2e-5,
         eta=0.75,
-        T0_C=20.0
+        T0_C=20.0,
+        T_melting_C=1500.0
     ),
     "АМг6": MaterialProperties(
         name="АМг6",
@@ -20,8 +21,9 @@ MATERIALS_DB = {
         alpha_1perC=2.4e-5,
         lambda_W_mK=120.0,
         a_m2s=7.5e-5,
-        eta=0.70,  # для MIG/MAG
-        T0_C=20.0
+        eta=0.70,
+        T0_C=20.0,
+        T_melting_C=650.0
     ),
     "12Х18Н10Т": MaterialProperties(
         name="12Х18Н10Т",
@@ -31,7 +33,8 @@ MATERIALS_DB = {
         lambda_W_mK=15.0,
         a_m2s=4.0e-6,
         eta=0.75,
-        T0_C=20.0
+        T0_C=20.0,
+        T_melting_C=1400.0
     )
 }
 
