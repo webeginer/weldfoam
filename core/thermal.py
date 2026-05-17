@@ -1,7 +1,7 @@
-# core/thermal.py — исправленный
+# core/thermal.py
 import numpy as np
 from scipy.special import kn
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 def temperature_profile_rykalin(
     y_m: np.ndarray,      # координаты по ширине (м), от 0 (кромка шва) до h
@@ -11,13 +11,14 @@ def temperature_profile_rykalin(
     delta: float,         # толщина листа (м)
     material: Dict,       # свойства: {'lambda': 50, 'a': 1.2e-5, 'eta': 0.75, 'T0': 20, 'T_melting': 1500}
     x: float = 0.0,       # расстояние от дуги вдоль шва (м)
-) -> Tuple[np.ndarray, Optional[str]]:
+) -> np.ndarray:
     """
     Рассчитывает температуру T(y) для сечения, отстоящего на x позади дуги.
+    Формула для тонкого листа (движущийся линейный источник).
+    Источник: Рыкалин, Окерблом.
     
     Возвращает:
         T: массив температур (°C)
-        warning: предупреждение, если T > 0.9 * T_melting
     """
     # Проверка входных данных
     if len(y_m) == 0:
@@ -57,7 +58,7 @@ def temperature_profile_rykalin(
     # Тепловая мощность дуги (Вт)
     q = eta * U * I
     
-    # Коэффициент перед K0 (формула Рыкалина)
+    # Коэффициент перед K0 (формула Рыкалина в СИ)
     coeff = q / (2 * np.pi * lam * delta)
     
     # Аргумент функции Бесселя K0
@@ -77,16 +78,10 @@ def temperature_profile_rykalin(
     # Добавляем начальную температуру
     T = T + T0
     
-    # Генерация предупреждения при перегреве
-    warning = None
-    T_max = np.max(T)
-    if T_max > 0.9 * T_melting:
-        warning = f"Внимание: T_max = {T_max:.0f}°C превышает 90% температуры плавления ({T_melting:.0f}°C). Возможно проплавление."
-    
     # Ограничение максимальной температуры (чуть ниже плавления)
     T = np.minimum(T, T_max_limit)
     
     # Обработка NaN и Inf
     T = np.nan_to_num(T, nan=T_max_limit, posinf=T_max_limit)
     
-    return T, warning
+    return T

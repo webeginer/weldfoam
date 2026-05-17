@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 import numpy as np
 import logging
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
 
 from core.models import DirectInput, WeldingInput, HeatingResult, WeldingResult, FullWeldingResult
@@ -32,7 +32,6 @@ class BatchResponse(BaseModel):
     curvature_1pm: float
     max_stress_MPa: float
     deflection_mm: float
-    warning: Optional[str] = None
 
 
 # ========== ЭНДПОИНТЫ ==========
@@ -64,8 +63,7 @@ async def calculate_direct(input_data: DirectInput):
             plastic_strains_compression=plastic_strains.tolist(),
             y_coords_mm=(y_m * 1000).tolist(),
             iterations=iters,
-            residual=float(residual),
-            warning=None
+            residual=float(residual)
         )
         
     except Exception as e:
@@ -82,7 +80,8 @@ async def calculate_welding(input_data: WeldingInput):
         q = material.eta * input_data.U_V * input_data.I_A
         v_ms = input_data.v_ms
         heat_input = q / v_ms
-        heat_input_kJ_m = heat_input / 1000.0
+        # Тепловложение в Дж/мм
+        heat_input_J_per_mm = heat_input / 1000.0
         
         h_m = input_data.h_m
         y_m = np.linspace(0, h_m, input_data.n_points)
@@ -96,7 +95,7 @@ async def calculate_welding(input_data: WeldingInput):
         }
         delta_m = input_data.delta_m
         
-        T_profile, thermal_warning = temperature_profile_rykalin(
+        T_profile = temperature_profile_rykalin(
             y_m=y_m, I=input_data.I_A, U=input_data.U_V, v=v_ms,
             delta=delta_m, material=material_dict, x=0.0
         )
@@ -119,11 +118,8 @@ async def calculate_welding(input_data: WeldingInput):
         deflection = curvature * L_m**2 / 8 if curvature != 0 else 0.0
         deflection_mm = deflection * 1000.0
         
-        # Собираем все предупреждения
-        warning = thermal_warning
-        
         return WeldingResult(
-            heat_input_kJ_per_m=heat_input_kJ_m,
+            heat_input_kJ_per_m=heat_input_J_per_mm,
             T_max_C=T_max,
             heating=HeatingResult(
                 delta0=float(delta0),
@@ -133,13 +129,11 @@ async def calculate_welding(input_data: WeldingInput):
                 plastic_strains_compression=plastic_strains.tolist(),
                 y_coords_mm=(y_m * 1000).tolist(),
                 iterations=iters,
-                residual=float(residual),
-                warning=warning
+                residual=float(residual)
             ),
             n_points=input_data.n_points,
             material=material.name,
-            deflection_mm=deflection_mm,
-            warning=warning
+            deflection_mm=deflection_mm
         )
         
     except Exception as e:
@@ -159,7 +153,8 @@ async def calculate_welding_full(input_data: WeldingInput):
         q = material.eta * input_data.U_V * input_data.I_A
         v_ms = input_data.v_ms
         heat_input = q / v_ms
-        heat_input_kJ_m = heat_input / 1000.0
+        # Тепловложение в Дж/мм
+        heat_input_J_per_mm = heat_input / 1000.0
         
         h_m = input_data.h_m
         y_m = np.linspace(0, h_m, input_data.n_points)
@@ -173,7 +168,7 @@ async def calculate_welding_full(input_data: WeldingInput):
         }
         delta_m = input_data.delta_m
         
-        T_profile, thermal_warning = temperature_profile_rykalin(
+        T_profile = temperature_profile_rykalin(
             y_m=y_m, I=input_data.I_A, U=input_data.U_V, v=v_ms,
             delta=delta_m, material=material_dict, x=0.0
         )
@@ -205,10 +200,8 @@ async def calculate_welding_full(input_data: WeldingInput):
         deflection = final_curvature * L_m**2 / 8 if final_curvature != 0 else 0.0
         deflection_mm = deflection * 1000.0
         
-        warning = thermal_warning
-        
         return FullWeldingResult(
-            heat_input_kJ_per_m=heat_input_kJ_m,
+            heat_input_kJ_per_m=heat_input_J_per_mm,
             T_max_C=T_max,
             heating=HeatingResult(
                 delta0=float(delta0),
@@ -218,8 +211,7 @@ async def calculate_welding_full(input_data: WeldingInput):
                 plastic_strains_compression=plastic_strains.tolist(),
                 y_coords_mm=(y_m * 1000).tolist(),
                 iterations=iters,
-                residual=float(residual),
-                warning=warning
+                residual=float(residual)
             ),
             n_points=input_data.n_points,
             material=material.name,
@@ -227,8 +219,7 @@ async def calculate_welding_full(input_data: WeldingInput):
             final_curvature_1pm=float(final_curvature),
             residual_stresses_MPa=(final_stresses / 1e6).tolist(),
             final_plastic_strains=final_plastic.tolist(),
-            cooling_steps=len(curvatures),
-            warning=warning
+            cooling_steps=len(curvatures)
         )
         
     except Exception as e:
@@ -258,7 +249,7 @@ async def batch_calculate(regimes: List[BatchRegime]):
                 'T_melting': material.T_melting_C
             }
             
-            T_profile, thermal_warning = temperature_profile_rykalin(
+            T_profile = temperature_profile_rykalin(
                 y_m=y_m, I=regime.I_A, U=regime.U_V, v=regime.v_ms,
                 delta=regime.delta_m, material=material_dict, x=0.0
             )
@@ -279,8 +270,7 @@ async def batch_calculate(regimes: List[BatchRegime]):
                 regime_id=idx,
                 curvature_1pm=float(curvature),
                 max_stress_MPa=float(np.max(stresses) / 1e6),
-                deflection_mm=float(deflection * 1000),
-                warning=thermal_warning
+                deflection_mm=float(deflection * 1000)
             ))
             
         except Exception as e:
@@ -289,8 +279,7 @@ async def batch_calculate(regimes: List[BatchRegime]):
                 regime_id=idx,
                 curvature_1pm=0.0,
                 max_stress_MPa=0.0,
-                deflection_mm=0.0,
-                warning=str(e)
+                deflection_mm=0.0
             ))
     
     return results

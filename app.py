@@ -115,11 +115,14 @@ if st.session_state.get("calculate", False):
                 curvature_heating_1pmm = heating['curvature_1pm'] / 1000.0
                 curvature_final_1pmm = result['final_curvature_1pm'] / 1000.0
                 
+                # Тепловложение: из кДж/м в Дж/мм
+                heat_input_J_per_mm = result['heat_input_kJ_per_m'] * 1000 / 1000  # кДж/м = Дж/мм
+                heat_input_J_per_mm_str = f"{heat_input_J_per_mm:,.1f}".replace('.', ',')
+                
                 # Форматирование с запятой (русская локаль)
                 curvature_heating_str = f"{curvature_heating_1pmm:,.6f}".replace('.', ',')
                 curvature_final_str = f"{curvature_final_1pmm:,.6f}".replace('.', ',')
                 deflection_str = f"{result['deflection_mm']:,.2f}".replace('.', ',')
-                heat_input_str = f"{result['heat_input_kJ_per_m']:,.1f}".replace('.', ',')
                 tmax_str = str(int(result['T_max_C']))
                 
                 # Первая строка метрик (3 колонки)
@@ -159,9 +162,9 @@ if st.session_state.get("calculate", False):
                 with col_r5:
                     st.metric(
                         label="Тепловложение",
-                        value=heat_input_str
+                        value=heat_input_J_per_mm_str
                     )
-                    st.caption("(кДж/м)")
+                    st.caption("(Дж/мм)")
                 
                 with col_r6:
                     st.metric(
